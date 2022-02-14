@@ -1481,7 +1481,9 @@ namespace LiquidVolumeFX {
         #endregion
 
         public static bool useFPRenderTextures = true;
-
+#if UNITY_EDITOR
+        static int fpRenderTextureCheckFrame = -1;
+#endif
 
         // ---- INTERNAL CODE ----
         const int SHADER_KEYWORD_DEPTH_AWARE_INDEX = 0;
@@ -1541,7 +1543,8 @@ namespace LiquidVolumeFX {
         bool immediate;
 
         // Mesh info
-        Vector3[] verticesUnsorted, verticesSorted, rotatedVertices;
+        Vector3[] verticesUnsorted, verticesSorted;
+        static Vector3[] rotatedVertices;
         int[] verticesIndices;
         float volumeRef, lastLevelVolumeRef;
 
@@ -1772,25 +1775,52 @@ namespace LiquidVolumeFX {
 
         #region Internal stuff
 
+        struct MeshCache {
+            public Vector3[] verticesSorted;
+            public Vector3[] verticesUnsorted;
+            public int[] indices;
+        }
+
+        static readonly Dictionary<Mesh, MeshCache> meshCache = new Dictionary<Mesh, MeshCache>();
+
+        public void ClearMeshCache() {
+            meshCache.Clear();
+        }
+
         void ReadVertices() {
             if (mesh == null)
                 return;
 
-            if (!mesh.isReadable) {
-                Debug.LogError("Mesh " + mesh.name + " is not readable. Please select your mesh and enable the Read/Write Enabled option.");
+            if (!meshCache.TryGetValue(mesh, out MeshCache meshData)) {
+                if (!mesh.isReadable) {
+                    Debug.LogError("Mesh " + mesh.name + " is not readable. Please select your mesh and enable the Read/Write Enabled option.");
+                }
+
+                verticesUnsorted = mesh.vertices;
+                verticesIndices = mesh.triangles;
+
+                int vertexCount = verticesUnsorted.Length;
+
+                if (verticesSorted == null || verticesSorted.Length != vertexCount) {
+                    verticesSorted = new Vector3[vertexCount];
+                }
+                Array.Copy(verticesUnsorted, verticesSorted, vertexCount);
+                Array.Sort(verticesSorted, vertexComparer);
+
+                meshData.verticesUnsorted = verticesUnsorted;
+                meshData.indices = verticesIndices;
+                meshData.verticesSorted = verticesSorted;
+
+                if (meshCache.Count > 64) {
+                    // Clear cache to avoid memory overrun
+                    ClearMeshCache();
+                }
+                meshCache[mesh] = meshData;
+            } else {
+                verticesUnsorted = meshData.verticesUnsorted;
+                verticesIndices = meshData.indices;
+                verticesSorted = meshData.verticesSorted;
             }
-
-            int vertexCount = mesh.vertexCount;
-            verticesUnsorted = mesh.vertices;
-
-            verticesIndices = mesh.triangles;
-
-            if (verticesSorted == null || verticesSorted.Length != vertexCount) {
-                verticesSorted = new Vector3[vertexCount];
-            }
-            Array.Copy(verticesUnsorted, verticesSorted, vertexCount);
-
-            Array.Sort(verticesSorted, vertexComparer);
         }
 
         int vertexComparer(Vector3 v0, Vector3 v1) {
@@ -3012,7 +3042,7 @@ namespace LiquidVolumeFX {
             transform.localRotation = Quaternion.Euler(0, 0, 0);
             transform.localScale = scale;
 
-            RefreshCollider();
+            RefreshMeshAndCollider();
         }
 
         /// <summary>
@@ -3088,10 +3118,11 @@ namespace LiquidVolumeFX {
             midPoint.z *= localScale.z;
             transform.localPosition += midPoint;
 
-            RefreshCollider();
+            RefreshMeshAndCollider();
         }
 
-        public void RefreshCollider() {
+        public void RefreshMeshAndCollider() {
+            ClearMeshCache();
             MeshCollider mc = GetComponent<MeshCollider>();
             if (mc != null) {
                 Mesh oldMesh = mc.sharedMesh;
@@ -3602,7 +3633,7 @@ namespace LiquidVolumeFX {
 
             meshFilter.sharedMesh = originalMesh;
             transform.localPosition -= originalPivotOffset;
-            RefreshCollider();
+            RefreshMeshAndCollider();
         }
 
         #endregion
@@ -3716,19 +3747,22 @@ namespace LiquidVolumeFX {
 
         public void CheckFPRenderTextureSetting() {
 #if UNITY_EDITOR
-            Shader shader = Shader.Find("LiquidVolume/ZWriteBack");
-            if (shader == null) return;
-            string path = AssetDatabase.GetAssetPath(shader);
-            path = System.IO.Path.GetDirectoryName(path) + "/LVLiquidPassBase.cginc";
-            string[] lines = System.IO.File.ReadAllLines(path, System.Text.Encoding.UTF8);
-            for (int k = 0; k < lines.Length; k++) {
-                if (lines[k].Contains(SHADER_KEYWORD_FP_RENDER_TEXTURE)) {
-                    if (lines[k].TrimStart().StartsWith("//")) {
-                        useFPRenderTextures = false;
-                    } else {
-                        useFPRenderTextures = true;
+            if (Time.frameCount != fpRenderTextureCheckFrame) {
+                fpRenderTextureCheckFrame = Time.frameCount;
+                Shader shader = Shader.Find("LiquidVolume/ZWriteBack");
+                if (shader == null) return;
+                string path = AssetDatabase.GetAssetPath(shader);
+                path = System.IO.Path.GetDirectoryName(path) + "/LVLiquidPassBase.cginc";
+                string[] lines = System.IO.File.ReadAllLines(path, System.Text.Encoding.UTF8);
+                for (int k = 0; k < lines.Length; k++) {
+                    if (lines[k].Contains(SHADER_KEYWORD_FP_RENDER_TEXTURE)) {
+                        if (lines[k].TrimStart().StartsWith("//")) {
+                            useFPRenderTextures = false;
+                        } else {
+                            useFPRenderTextures = true;
+                        }
+                        break;
                     }
-                    break;
                 }
             }
 #endif

@@ -32,6 +32,10 @@ https://www.assetstore.unity3d.com/en/#!/search/page=1/sortby=popularity/query=p
 Version history
 ---------------
 
+Version 3.0.4
+- Memory and loading optimizations when using many instances of same flask
+- [Fix] Fixed an issue with Unity 2021.2 that affects shader variants in a build
+
 Version 3.0.3
 - Memory optimizations for bubbles option
 

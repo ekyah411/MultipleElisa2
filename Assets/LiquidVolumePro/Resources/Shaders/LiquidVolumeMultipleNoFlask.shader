@@ -82,10 +82,10 @@ Shader "LiquidVolume/MultipleNoFlask" {
 		#pragma surface surf Simple alpha nolightmap nofog noinstancing noforwardadd noambient
 		#pragma fragmentoption ARB_precision_hint_fastest
 		#pragma target 3.0
+		#pragma multi_compile LIQUID_VOLUME_SPHERE LIQUID_VOLUME_CUBE LIQUID_VOLUME_CYLINDER LIQUID_VOLUME_IRREGULAR
+		#pragma multi_compile __ LIQUID_VOLUME_NON_AABB LIQUID_VOLUME_IGNORE_GRAVITY
 		#pragma multi_compile __ LIQUID_VOLUME_DEPTH_AWARE
 		#pragma multi_compile __ LIQUID_VOLUME_DEPTH_AWARE_PASS
-		#pragma multi_compile __ LIQUID_VOLUME_NON_AABB LIQUID_VOLUME_IGNORE_GRAVITY
-		#pragma multi_compile LIQUID_VOLUME_SPHERE LIQUID_VOLUME_CUBE LIQUID_VOLUME_CYLINDER LIQUID_VOLUME_IRREGULAR
 		#include "LVLiquidPass3DMultiple.cginc"
 		ENDCG
         

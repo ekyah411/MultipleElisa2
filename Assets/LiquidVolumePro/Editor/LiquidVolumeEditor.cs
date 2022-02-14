@@ -701,7 +701,7 @@ namespace LiquidVolumeFX {
             lv.transform.localScale = scale;
             lv.transform.localRotation = Quaternion.Euler(0, 0, 0);
 
-            lv.RefreshCollider();
+            lv.RefreshMeshAndCollider();
         }
 
         public void CenterPivot(LiquidVolume lv) {
@@ -740,7 +740,7 @@ namespace LiquidVolumeFX {
             midPoint.z *= localScale.z;
             lv.transform.localPosition += midPoint;
 
-            lv.RefreshCollider();
+            lv.RefreshMeshAndCollider();
         }
 
         void SaveMeshAsset(Mesh mesh, string originalMeshPath) {
